@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Open 5 Links — Consent Required</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Roboto, Arial; padding: 2rem; max-width:720px; margin:auto; }
+    input, button { font-size:1rem; padding:0.6rem; margin-top:0.5rem; width:100%; box-sizing:border-box; }
+    .links { margin-top:1rem; }
+    .notice { color:#444; font-size:0.9rem; margin-top:0.75rem; }
+    .fallback { margin-top:1rem; display:none; }
+    ol { padding-left:1.2rem; }
+  </style>
+</head>
+<body>
+  <h1>Open all 5 links (consent required)</h1>
+  <p>Enter your email and click <strong>Open links</strong>. This will attempt to open each link in a new tab and append the same <code>?email=</code> value to each URL. Your browser may block popups unless you click the button yourself.</p>
+
+  <label for="email">Email</label>
+  <input id="email" type="email" placeholder="you@example.com" />
+
+  <div class="links" aria-hidden="true">
+    <p><strong>Links that will be opened:</strong></p>
+    <ol id="linkList"></ol>
+  </div>
+
+  <button id="openBtn">Open links</button>
+
+  <div class="notice">
+    <p><strong>Privacy & consent:</strong> By clicking you consent to opening these links and to sending your email in the query string to those URLs. Do not use this for deceptive tracking.</p>
+  </div>
+
+  <div class="fallback" id="fallback">
+    <p>Browser blocked opening new tabs. Please click each link manually:</p>
+    <ol id="fallbackList"></ol>
+  </div>
+
+<script>
+  // === YOUR 5 TARGET LINKS ===
+  const targets = [
+    "https://aiskillshouse.com/student/qr-mediator.html?uid=921&promptId=13",
+    "https://aiskillshouse.com/student/qr-mediator.html?uid=921&promptId=14",
+    "https://aiskillshouse.com/student/qr-mediator.html?uid=921&promptId=15",
+    "https://aiskillshouse.com/student/qr-mediator.html?uid=921&promptId=16",
+    "https://aiskillshouse.com/student/qr-mediator.html?uid=921&promptId=17"
+  ];
+
+  const list = document.getElementById('linkList');
+  const fallbackList = document.getElementById('fallbackList');
+
+  // show the base links (without added email yet)
+  targets.forEach(t => {
+    const li = document.createElement('li');
+    li.textContent = t;
+    list.appendChild(li);
+  });
+
+  // if email present in query string, populate the input
+  const params = new URLSearchParams(window.location.search);
+  const emailInput = document.getElementById('email');
+  if (params.has('email')) {
+    emailInput.value = params.get('email');
+  }
+
+  function appendEmailToUrl(base, email) {
+    try {
+      // if the base already has query params, keep them and append/override email
+      const url = new URL(base);
+      url.searchParams.set('email', email);
+      return url.toString();
+    } catch (err) {
+      // fallback: naive append
+      return base + (base.includes('?') ? '&' : '?') + 'email=' + encodeURIComponent(email);
+    }
+  }
+
+  document.getElementById('openBtn').addEventListener('click', function () {
+    const email = (emailInput.value || '').trim();
+    if (!email) {
+      alert('Please enter your email.');
+      emailInput.focus();
+      return;
+    }
+
+    // Attempt to open each link in a new tab/window. This is initiated by user click.
+    const opened = [];
+    for (const base of targets) {
+      const url = appendEmailToUrl(base, email);
+      try {
+        const w = window.open(url, '_blank');
+        if (w) {
+          opened.push({ url, ok: true });
+        } else {
+          opened.push({ url, ok: false });
+        }
+      } catch (err) {
+        opened.push({ url, ok: false });
+      }
+    }
+
+    // If any window was blocked, show fallback clickable links
+    const blocked = opened.some(x => !x.ok);
+    if (blocked) {
+      const fallbackDiv = document.getElementById('fallback');
+      fallbackList.innerHTML = '';
+      opened.forEach(x => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = x.url;
+        a.textContent = x.url;
+        a.target = '_blank';
+        li.appendChild(a);
+        fallbackList.appendChild(li);
+      });
+      fallbackDiv.style.display = 'block';
+      alert('Your browser blocked some tabs. A list of links is shown so you can click them manually.');
+    } else {
+      // Optionally show a confirm message
+      alert('All links opened (if your browser allowed it).');
+    }
+
+    // OPTIONAL: send a record to your own server that the user consented (uncomment + configure)
+    // fetch('/api/log-open', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email, openedAt: new Date().toISOString(), links: targets }) }).catch(()=>{});
+  });
+</script>
+</body>
+</html>
